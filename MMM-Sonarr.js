@@ -4,7 +4,7 @@ Module.register("MMM-Sonarr", {
         baseUrl: "http://localhost:8989",
         upcomingLimit: 5,
         historyLimit: 5,
-        updateInterval: 15 * 60 * 1000, // 15 minutes
+        updateInterval: 1 * 60 * 1000, // 1 minute
     },
 
     start: function() {
@@ -21,16 +21,20 @@ Module.register("MMM-Sonarr", {
         const wrapper = document.createElement("div");
         wrapper.className = "sonarr-wrapper";
 
-        const upcomingSection = this.createSection("Upcoming Shows", this.upcoming);
-        const historySection = this.createSection("Recently Downloaded", this.history);
+        if (this.config.upcomingLimit > 0) {
+            const upcomingSection = this.createSection("Upcoming Shows", this.upcoming, this.config.upcomingLimit);
+            wrapper.appendChild(upcomingSection);
+        }
 
-        wrapper.appendChild(upcomingSection);
-        wrapper.appendChild(historySection);
+        if (this.config.historyLimit > 0) {
+            const historySection = this.createSection("Recently Downloaded", this.history, this.config.historyLimit);
+            wrapper.appendChild(historySection);
+        }
 
         return wrapper;
     },
 
-    createSection: function(title, data) {
+    createSection: function(title, data, limit) {
         const section = document.createElement("div");
         section.className = "sonarr-section";
 
@@ -39,15 +43,25 @@ Module.register("MMM-Sonarr", {
         section.appendChild(header);
 
         const list = document.createElement("ul");
+        
+        // Create a Set to store unique entries
+        const uniqueEntries = new Set();
+        
         data.forEach(item => {
-            const listItem = document.createElement("li");
+            let entryText;
             if (title === "Upcoming Shows") {
-                const date = new Date(item.start);
-                listItem.textContent = `${item.title}`;
+                entryText = `${item.series.title} - ${item.seasonNumber}x${item.episodeNumber}`;
             } else {
-                listItem.textContent = `${item.series.title} - ${item.episode.seasonNumber}x${item.episode.episodeNumber}`;
+                entryText = `${item.series.title} - ${item.episode.seasonNumber}x${item.episode.episodeNumber}`;
             }
-            list.appendChild(listItem);
+            
+            // Only add the entry if it's not already in the Set
+            if (!uniqueEntries.has(entryText) && uniqueEntries.size < limit) {
+                uniqueEntries.add(entryText);
+                const listItem = document.createElement("li");
+                listItem.textContent = entryText;
+                list.appendChild(listItem);
+            }
         });
 
         section.appendChild(list);
