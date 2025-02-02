@@ -1,35 +1,33 @@
-const NodeHelper = require("node_helper");
-const https = require("https");
-const http = require("http");
-const url = require("url");
+var NodeHelper = require("node_helper");
+var https = require("https");
+var http = require("http");
+var url = require("url");
 
 module.exports = NodeHelper.create({
     start: function() {
         console.log("Starting node helper for: " + this.name);
+        this.started = false;
     },
 
     socketNotificationReceived: function(notification, payload) {
+        console.log(`${this.name}: Received socket notification: ${notification}`);
+        
         if (notification === "START_SONARR") {
+            console.log(`${this.name}: Received START_SONARR, initializing...`);
             this.config = payload;
+            this.started = true;
             this.getUpcoming();
             this.getHistory();
-            this.scheduleUpdate();
         }
     },
 
-    scheduleUpdate: function() {
-        setInterval(() => {
-            this.getUpcoming();
-            this.getHistory();
-        }, this.config.updateInterval);
-    },
-
     getUpcoming: function() {
-        const apiUrl = `${this.config.baseUrl}/api/v3/calendar`;
-        const currentDate = new Date();
-        const futureDate = new Date(currentDate.getTime() + 24 * 24 * 60 * 60 * 1000); // 24 days from now
+        console.log(`${this.name}: Fetching upcoming episodes`);
+        var apiUrl = `${this.config.baseUrl}/api/v3/calendar`;
+        var currentDate = new Date();
+        var futureDate = new Date(currentDate.getTime() + 24 * 24 * 60 * 60 * 1000);
     
-        const params = new URLSearchParams({
+        var params = new URLSearchParams({
             start: currentDate.toISOString(),
             end: futureDate.toISOString(),
             includeSeries: "true",
@@ -38,19 +36,20 @@ module.exports = NodeHelper.create({
     
         this.sendRequest(apiUrl, params, (response) => {
             if (!Array.isArray(response)) {
-                console.error("Unexpected response format from Sonarr API");
+                console.error(`${this.name}: Unexpected response format from Sonarr API`);
                 return;
             }
-    
+            console.log(`${this.name}: Sending upcoming data to module`);
             this.sendSocketNotification("SONARR_UPCOMING", response);
         });
     },
 
     getHistory: function() {
-        const apiUrl = `${this.config.baseUrl}/api/v3/history`;
-        const params = new URLSearchParams({
+        console.log(`${this.name}: Fetching history`);
+        var apiUrl = `${this.config.baseUrl}/api/v3/history`;
+        var params = new URLSearchParams({
             page: 1,
-            pageSize: 50, // Fetch more items and limit in MMM-Sonarr.js
+            pageSize: 50,
             sortKey: "date",
             sortDirection: "descending",
             includeSeries: true,
@@ -59,15 +58,22 @@ module.exports = NodeHelper.create({
         });
 
         this.sendRequest(apiUrl, params, (response) => {
-            this.sendSocketNotification("SONARR_HISTORY", response.records);
+            console.log(`${this.name}: Sending history data to module`);
+            if (response && response.records) {
+                this.sendSocketNotification("SONARR_HISTORY", response.records);
+            } else {
+                console.error(`${this.name}: Invalid history response:`, response);
+            }
         });
     },
 
     sendRequest: function(apiUrl, params, callback) {
-        const fullUrl = `${apiUrl}?${params.toString()}`;
-        const parsedUrl = url.parse(fullUrl);
+        var fullUrl = `${apiUrl}?${params.toString()}`;
+        console.log(`${this.name}: Sending request to:`, fullUrl);
         
-        const options = {
+        var parsedUrl = url.parse(fullUrl);
+        
+        var options = {
             hostname: parsedUrl.hostname,
             port: parsedUrl.port,
             path: parsedUrl.path,
@@ -77,10 +83,10 @@ module.exports = NodeHelper.create({
             },
         };
 
-        const protocol = parsedUrl.protocol === 'https:' ? https : http;
+        var protocol = parsedUrl.protocol === 'https:' ? https : http;
 
-        const req = protocol.request(options, (res) => {
-            let data = '';
+        var req = protocol.request(options, (res) => {
+            var data = '';
 
             res.on('data', (chunk) => {
                 data += chunk;
@@ -88,19 +94,19 @@ module.exports = NodeHelper.create({
 
             res.on('end', () => {
                 try {
-                    const jsonData = JSON.parse(data);
+                    console.log(`${this.name}: Response received, parsing JSON`);
+                    var jsonData = JSON.parse(data);
                     callback(jsonData);
                 } catch (error) {
-                    console.error("Error parsing JSON:", error);
+                    console.error(`${this.name}: Error parsing JSON:`, error);
                 }
             });
         });
 
         req.on('error', (error) => {
-            console.error("Error fetching Sonarr data:", error);
+            console.error(`${this.name}: Error making request:`, error);
         });
 
         req.end();
     },
-
 });
