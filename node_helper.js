@@ -1,7 +1,10 @@
-var NodeHelper = require("node_helper");
-var https = require("https");
-var http = require("http");
-var url = require("url");
+const NodeHelper = require("node_helper");
+const https = require("https");
+const http = require("http");
+const url = require("url");
+const path = require("path");
+const fs = require("fs");
+
 
 module.exports = NodeHelper.create({
     start: function() {
@@ -10,14 +13,43 @@ module.exports = NodeHelper.create({
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log(`${this.name}: Received socket notification: ${notification}`);
+        console.log(`${this.name}: Received notification: ${notification}`);
         
         if (notification === "START_SONARR") {
-            console.log(`${this.name}: Received START_SONARR, initializing...`);
+            console.log(`${this.name}: Starting Sonarr data fetch with config:`, payload);
             this.config = payload;
             this.started = true;
             this.getUpcoming();
             this.getHistory();
+            this.loadTranslationFile();
+
+        } 
+    },
+
+    loadTranslationFile: function() {
+        console.log(`${this.name}: Translation load started`);
+        try {
+            const translationDir = path.join('modules', 'MMM-Sonarr', "translations");
+            const filePath = path.join(translationDir, `${this.config.language}.json`);
+            
+            console.log(`${this.name}: Looking for translation file at:`, filePath);
+
+            if (!fs.existsSync(filePath)) {
+                throw new Error(`Translation file not found for language: ${this.config.language}`);
+            }
+
+            const content = fs.readFileSync(filePath, 'utf8');
+            const translation = JSON.parse(content);
+            
+            console.log(`${this.name}: Translation loaded successfully:`, translation);
+            this.sendSocketNotification("TRANSLATION", translation);
+        } catch(err) {
+            console.error(`${this.name}: Error loading translation:`, err.message);
+            console.log(`${this.name}: Sending default translations`);
+            this.sendSocketNotification("TRANSLATION", {
+                upcoming: "Upcoming Episodes",
+                recent: "Recent Episodes"
+            });
         }
     },
 

@@ -1,3 +1,4 @@
+
 Module.register("MMM-Sonarr", {
     defaults: {
         apiKey: "",
@@ -9,19 +10,14 @@ Module.register("MMM-Sonarr", {
     },
 
     start: function() {
-        console.log("Starting MMM-Sonarr module");
+        Log.info("Starting MMM-Sonarr module");
         
-        // Initialize state
         this.loaded = false;
         this.upcoming = [];
         this.history = [];
-        this.translations = {
-            upcoming: "Upcoming Episodes",
-            recent: "Recent Episodes"
-        };
 
-        // Start Sonarr data fetch immediately
-        console.log("MMM-Sonarr: Sending START_SONARR notification");
+        this.translations = [];
+
         this.sendSocketNotification("START_SONARR", this.config);
     },
 
@@ -30,6 +26,9 @@ Module.register("MMM-Sonarr", {
     },
 
     getDom: function() {
+        Log.info("MMM-Sonarr: getDom called, loaded state:", this.loaded);
+        console.log(`${this.data.path}`)
+        
         const wrapper = document.createElement("div");
         wrapper.className = "sonarr-wrapper";
 
@@ -64,7 +63,7 @@ Module.register("MMM-Sonarr", {
         const list = document.createElement("ul");
         
         if (!Array.isArray(data)) {
-            console.warn(`MMM-Sonarr: Data for ${section_type} is not an array:`, data);
+            Log.warn(`MMM-Sonarr: Data for ${section_type} is not an array:`, data);
             return section;
         }
         
@@ -86,7 +85,7 @@ Module.register("MMM-Sonarr", {
                     list.appendChild(listItem);
                 }
             } catch (error) {
-                console.error("MMM-Sonarr: Error creating list item:", error);
+                Log.error("MMM-Sonarr: Error creating list item:", error);
             }
         });
 
@@ -95,19 +94,24 @@ Module.register("MMM-Sonarr", {
     },
 
     socketNotificationReceived: function(notification, payload) {
-        console.log(`MMM-Sonarr: Received socket notification: ${notification}`);
+        Log.info(`MMM-Sonarr: Received socket notification: ${notification}`);
         
         if (notification === "SONARR_UPCOMING") {
-            console.log("MMM-Sonarr: Received upcoming data");
+            Log.info("MMM-Sonarr: Received upcoming data:", payload);
             this.upcoming = payload;
             this.loaded = true;
             this.updateDom();
         } else if (notification === "SONARR_HISTORY") {
-            console.log("MMM-Sonarr: Received history data");
+            Log.info("MMM-Sonarr: Received history data:", payload);
             this.history = payload;
             this.loaded = true;
             this.updateDom();
+        } else if (notification === "TRANSLATION") {
+            Log.info("MMM-Sonarr: Received translation", payload);
+            this.translations = payload;
+            this.loaded = true;
+            this.updateDom();
+            Log.info("MMM-Sonarr: Starting Sonarr data fetch");
         }
     },
 });
-
