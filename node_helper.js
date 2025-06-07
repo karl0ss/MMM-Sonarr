@@ -7,14 +7,14 @@ const fs = require("fs");
 
 
 module.exports = NodeHelper.create({
-    start: function() {
+    start: function () {
         console.log("Starting node helper for: " + this.name);
         this.started = false;
     },
 
-    socketNotificationReceived: function(notification, payload) {
+    socketNotificationReceived: function (notification, payload) {
         console.log(`${this.name}: Received notification: ${notification}`);
-        
+
         if (notification === "START_SONARR") {
             console.log(`${this.name}: Starting Sonarr data fetch with config:`, payload);
             this.config = payload;
@@ -23,15 +23,15 @@ module.exports = NodeHelper.create({
             this.getHistory();
             this.loadTranslationFile();
 
-        } 
+        }
     },
 
-    loadTranslationFile: function() {
+    loadTranslationFile: function () {
         console.log(`${this.name}: Translation load started`);
         try {
             const translationDir = path.join('modules', 'MMM-Sonarr', "translations");
             const filePath = path.join(translationDir, `${this.config.language}.json`);
-            
+
             console.log(`${this.name}: Looking for translation file at:`, filePath);
 
             if (!fs.existsSync(filePath)) {
@@ -40,43 +40,73 @@ module.exports = NodeHelper.create({
 
             const content = fs.readFileSync(filePath, 'utf8');
             const translation = JSON.parse(content);
-            
+
             console.log(`${this.name}: Translation loaded successfully:`, translation);
             this.sendSocketNotification("TRANSLATION", translation);
-        } catch(err) {
+        } catch (err) {
             console.error(`${this.name}: Error loading translation:`, err.message);
             console.log(`${this.name}: Sending default translations`);
             this.sendSocketNotification("TRANSLATION", {
-                upcoming: "Upcoming Episodes",
+                upcoming: "Wanted Episodes",
                 recent: "Recent Episodes"
             });
         }
     },
 
-    getUpcoming: function() {
-        console.log(`${this.name}: Fetching upcoming episodes`);
+    // getUpcoming: function() {
+    //     console.log(`${this.name}: Fetching upcoming episodes`);
+    //     var apiUrl = `${this.config.baseUrl}/api/v3/calendar`;
+    //     var currentDate = new Date();
+    //     var futureDate = new Date(currentDate.getTime() + 24 * 24 * 60 * 60 * 1000);
+
+    //     var params = new URLSearchParams({
+    //         start: currentDate.toISOString(),
+    //         end: futureDate.toISOString(),
+    //         includeSeries: "true",
+    //         includeEpisodeFile: "false"
+    //     });
+
+    //     this.sendRequest(apiUrl, params, (response) => {
+    //         if (!Array.isArray(response)) {
+    //             console.error(`${this.name}: Unexpected response format from Sonarr API`);
+    //             return;
+    //         }
+    //         console.log(`${this.name}: Sending upcoming data to module`);
+    //         this.sendSocketNotification("SONARR_UPCOMING", response);
+    //     });
+    // },
+
+    getWanted: function () {
+        console.log(`${this.name}: Fetching wanted episodes`);
+
         var apiUrl = `${this.config.baseUrl}/api/v3/calendar`;
+
         var currentDate = new Date();
-        var futureDate = new Date(currentDate.getTime() + 24 * 24 * 60 * 60 * 1000);
-    
+        var pastDate = new Date(currentDate.getTime() - 5 * 24 * 60 * 60 * 1000); // 5 days ago
+
         var params = new URLSearchParams({
-            start: currentDate.toISOString(),
-            end: futureDate.toISOString(),
+            start: pastDate.toISOString(),
+            end: currentDate.toISOString(),
             includeSeries: "true",
-            includeEpisodeFile: "false"
+            includeEpisodeFile: "true"
         });
-    
+
         this.sendRequest(apiUrl, params, (response) => {
             if (!Array.isArray(response)) {
                 console.error(`${this.name}: Unexpected response format from Sonarr API`);
                 return;
             }
-            console.log(`${this.name}: Sending upcoming data to module`);
-            this.sendSocketNotification("SONARR_UPCOMING", response);
+
+            // Filter out episodes that have already been downloaded
+            const filteredEpisodes = response.filter(episode => !episode.episodeFile);
+
+            console.log(`${this.name}: Sending wanted (not downloaded) data to module`);
+            this.sendSocketNotification("SONARR_UPCOMING", filteredEpisodes);
         });
     },
+   
 
-    getHistory: function() {
+    getHistory: function () {
         console.log(`${this.name}: Fetching history`);
         var apiUrl = `${this.config.baseUrl}/api/v3/history`;
         var params = new URLSearchParams({
@@ -99,12 +129,12 @@ module.exports = NodeHelper.create({
         });
     },
 
-    sendRequest: function(apiUrl, params, callback) {
+    sendRequest: function (apiUrl, params, callback) {
         var fullUrl = `${apiUrl}?${params.toString()}`;
         console.log(`${this.name}: Sending request to:`, fullUrl);
-        
+
         var parsedUrl = url.parse(fullUrl);
-        
+
         var options = {
             hostname: parsedUrl.hostname,
             port: parsedUrl.port,
