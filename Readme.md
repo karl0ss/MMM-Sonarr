@@ -22,7 +22,7 @@ MMM-Sonarr is a MagicMirror² module that displays upcoming shows and recently d
 
 2. Clone this repository:
     ```bash
-    git clone https://github.com/gravitykillseverything/MMM-Sonarr.git
+    git clone https://github.com/karl0ss/MMM-Sonarr.git
     ```
 
 
