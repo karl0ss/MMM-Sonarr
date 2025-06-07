@@ -6,6 +6,7 @@ MMM-Sonarr is a MagicMirror² module that displays upcoming shows and recently d
 
 - Shows upcoming episodes from your Sonarr calendar
 - Displays recently downloaded episodes
+- Displays missed downloads in the last 5 days
 - Configurable update interval and display limits
 
 ## Screenshot
