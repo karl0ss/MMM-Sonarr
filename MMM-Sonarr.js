@@ -1,4 +1,4 @@
-Module.register("MMM-Sonarrkarl", {
+Module.register("MMM-Sonarr", {
     defaults: {
         apiKey: "",
         baseUrl: "http://localhost:8989",
