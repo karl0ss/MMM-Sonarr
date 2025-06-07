@@ -19,7 +19,7 @@ module.exports = NodeHelper.create({
             console.log(`${this.name}: Starting Sonarr data fetch with config:`, payload);
             this.config = payload;
             this.started = true;
-            this.missedEpisodes();
+            this.getMissed();
             this.getUpcoming();
             this.getHistory();
             this.loadTranslationFile();
